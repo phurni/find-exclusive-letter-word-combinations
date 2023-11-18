@@ -1,0 +1,48 @@
+#!/usr/bin/env ruby
+
+# keep words with exceeding length but with correct distinct letter counts
+# (for 5 letter: aardvark has 5 distinct letters but exceeds length to 8)
+OPTION_KEEP_WORDS = ARGV.delete('-k')
+
+# show all matching words for each distinct letter combination
+# (example: baker,brake,break)
+OPTION_SHOW_ALL_WORDS = ARGV.delete('-s')
+
+WORD_LENGTH = (ARGV[0] || 5).to_i
+NUMBER_OF_WORDS = (ARGV[1] || ARGV[0] || 5).to_i
+
+fail "Number of words times word length can't be over the alphabet size!" if NUMBER_OF_WORDS * WORD_LENGTH > 26
+
+def word_to_bits(word)
+  word.chars.reduce(0) {|memo, char| memo | (1 << (char.ord - 'a'.ord)) }
+end
+
+if OPTION_SHOW_ALL_WORDS
+  def bits_to_word(bits)
+    WORDS.values_at(*BIT_WORDS.each_with_index.select {|bit_word, index| bit_word == bits}.map(&:last)).join(',')
+  end
+else
+  def bits_to_word(bits)
+    WORDS[BIT_WORDS.index(bits)]
+  end
+end
+
+def find_matches(collection, partial_matches = [])
+  puts "#{partial_matches.map {|bw| bits_to_word(bw) }.join(' ')}" if partial_matches.size == NUMBER_OF_WORDS
+  collection.each_with_index do |item, index|
+    candidates = collection[index+1..].find_all {|other_item| (item & other_item) == 0 }
+    find_matches(candidates, partial_matches + [item])
+  end
+end
+
+if OPTION_KEEP_WORDS
+  WORDS = STDIN.readlines(chomp: true).select {|word| word.chars.uniq.size == WORD_LENGTH }
+else
+  WORDS = STDIN.readlines(chomp: true).select {|word| word.chars.uniq.size == WORD_LENGTH && word.size == WORD_LENGTH }
+end
+STDERR.puts "#{WORDS.size} words of length #{WORD_LENGTH}"
+
+BIT_WORDS = WORDS.map {|word| word_to_bits(word) }
+STDERR.puts "#{BIT_WORDS.uniq.size} of these words with unique different letters"
+
+find_matches(BIT_WORDS.uniq)
